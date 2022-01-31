@@ -10,8 +10,6 @@ There are two versions of each ROM, from 8k through 512k. One counts the banks u
 
 Every bank is printed to the screen. Banks that match print 'OK', and banks that fail print the bank ID that the program found instead. The output is done with 3 columns so that even a 512k rom fits on the screen, and it's easy to spot banks that fail.
 
-Note that Classic99 doesn't support 379-style ROMs that count upwards, so you can use that to see what the error case looks like.
-
 Version 2 - displays as asterisk next to the detected powerup bank. NOTE: This is only valid after a power up! After any program changes banks, including this tester, the startup bank does not reset with the console.
 
 Version 3 - three pages of results are toggled by pressing any key (in the event you get a blank screen, just press another key ;) )
