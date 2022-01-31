@@ -1,0 +1,367 @@
+* Bank switch tester
+* uses an external program to patch the binary for the specific size being tested
+* Second version - notes which bank it powered up in
+
+	DEF START
+	AORG >6000
+	
+* Used references (will be hard linked)
+VDPWA	EQU >8C02
+VDPWD	EQU >8C00
+VDPRD	EQU	>8800
+VDPST	EQU	>8802
+SCAN	EQU >000E
+GPLWS	EQU >83E0
+SCAN	EQU >000E
+
+* Standard Header 
+	DATA >AA71,>0100,>0000,NAMELST,>0000,>0000,>4C69,>6F6E
+NAMELST	DATA >0000,START,>124D			* Contains first letter 'M'
+	TEXT 'ULTIBANK TEST 8  '			* to work around Asm994a limits
+
+	EVEN
+HIBIT	DATA >8000
+BANKDAT	DATA >6000				* will be overwritten in each bank
+LSTBANK DATA >6010				* will be overwritten by generator
+
+* E/A environment for VDP registers
+	EVEN
+VDPREG	DATA >8000,>8200,>830E,>8402,>8506,>8600,>87F5,>81F0
+
+TXTOK	TEXT 'OK'
+SPACE	TEXT '  '
+DASH	TEXT '--'
+STAR	TEXT '**'
+DONE	TEXT '* DONE *'
+
+* Character set - starting with char 30 - this gives us nice lowercase ;)
+* >0308 bytes
+	EVEN
+CHARS
+	DATA >7070,>7070,>7070,>7000,>BFBF,>A3AF,>E3EF,>EFFF
+	DATA >0000,>0000,>0000,>0000,>1010,>1010,>1000,>1000
+	DATA >2828,>2800,>0000,>0000,>0028,>7C28,>287C,>2800
+	DATA >103C,>5038,>1478,>1000,>0044,>4C18,>3064,>4400
+	DATA >0020,>5020,>5448,>3400,>0810,>2000,>0000,>0000
+	DATA >0810,>2020,>2010,>0800,>2010,>0808,>0810,>2000
+	DATA >4428,>7C28,>4400,>0000,>0010,>107C,>1010,>0000
+	DATA >0000,>0000,>0030,>1020,>0000,>007C,>0000,>0000
+	DATA >0000,>0000,>0030,>3000,>0004,>0810,>2040,>0000
+	DATA >3844,>4C54,>5464,>3800,>1030,>1010,>1010,>3800
+	DATA >3844,>4408,>1020,>7C00,>7C08,>1008,>0444,>3800
+	DATA >0818,>2848,>7C08,>0800,>7840,>4078,>0444,>3800
+	DATA >3840,>4078,>4444,>3800,>7C04,>0408,>1020,>2000
+	DATA >3844,>4438,>4444,>3800,>3844,>4444,>3C04,>7800
+	DATA >0000,>3030,>0030,>3000,>0000,>3030,>0030,>1020
+	DATA >0000,>1020,>4020,>1000,>0000,>007C,>007C,>0000
+	DATA >0000,>1008,>0408,>1000,>0038,>4408,>1000,>1000
+	DATA >0038,>4454,>5840,>3C00,>3844,>447C,>4444,>4400
+	DATA >7844,>4478,>4444,>7800,>3844,>4040,>4044,>3800
+	DATA >7824,>2424,>2424,>3800,>7C40,>4078,>4040,>7C00
+	DATA >7C40,>4078,>4040,>4000,>3844,>4440,>4C44,>3800
+	DATA >4444,>447C,>4444,>4400,>3810,>1010,>1010,>3800
+	DATA >0404,>0404,>0444,>3800,>4448,>5070,>4844,>4400
+	DATA >4040,>4040,>4040,>7C00,>446C,>5444,>4444,>4400
+	DATA >4444,>6454,>4C44,>4400,>3844,>4444,>4444,>3800
+	DATA >7844,>4444,>7840,>4000,>3844,>4444,>544C,>3C00
+	DATA >7844,>4478,>5048,>4400,>3C40,>4038,>0404,>7800
+	DATA >7C10,>1010,>1010,>1000,>4444,>4444,>4444,>3800
+	DATA >4444,>4444,>4428,>1000,>4444,>4444,>5454,>2800
+	DATA >4444,>2810,>1028,>4400,>4444,>4428,>1010,>1000
+	DATA >7C04,>0810,>2040,>7C00,>0038,>2020,>2020,>3800
+	DATA >0000,>4020,>1008,>0400,>0038,>0808,>0808,>3800
+	DATA >0010,>2844,>0000,>0000,>0000,>0000,>0000,>7C00
+	DATA >2010,>0800,>0000,>0000,>0000,>3804,>3C44,>3C00
+	DATA >4040,>7844,>4444,>7800,>0000,>3844,>4040,>3800
+	DATA >0404,>3C44,>4444,>3C00,>0000,>3844,>7C40,>3800
+	DATA >0C10,>3810,>1010,>1000,>0000,>3C44,>443C,>0438
+	DATA >4040,>7844,>4444,>4400,>1000,>1010,>1010,>3800
+	DATA >0800,>0808,>0808,>4830,>4040,>4448,>7048,>4400
+	DATA >3010,>1010,>1010,>3800,>0000,>6854,>5454,>5400
+	DATA >0000,>5864,>4444,>4400,>0000,>3844,>4444,>3800
+	DATA >0000,>7844,>4444,>7840,>0000,>3C44,>4444,>3C04
+	DATA >0000,>2834,>2020,>2000,>0000,>3C40,>3804,>7800
+	DATA >0010,>3810,>1010,>0C00,>0000,>4444,>444C,>3400
+	DATA >0000,>4444,>4428,>1000,>0000,>5454,>5454,>2800
+	DATA >0000,>4428,>1028,>4400,>0000,>4444,>443C,>0438
+	DATA >0000,>7C08,>1020,>7C00,>000C,>1010,>2010,>100C
+	DATA >0010,>1010,>0010,>1010,>0060,>1010,>0810,>1060
+	DATA >0000,>2054,>0800,>0000
+
+* Subroutines to ease VDP access
+
+* Write address (also write register)
+* R0 contains two preformatted bytes to write
+VWADR
+	SWPB R0
+	MOVB R0,@VDPWA
+	SWPB R0
+	MOVB R0,@VDPWA
+	B *R11
+
+* multi-byte write - R0 is VDP address
+* R1 is CPU address
+* R2 is number of bytes
+* R12 is altered
+VMBW
+	ORI R0,>4000
+	MOV R11,R12
+	BL @VWADR
+MBLP
+	MOVB *R1+,@VDPWD
+	DEC R2
+	JNE MBLP
+	B *R12
+	
+* multi-byte set - R0 is VDP address
+* R1 (high) is byte to write
+* R2 is number of bytes
+* R12 is altered
+VSET
+	ORI R0,>4000
+	MOV R11,R12
+	BL @VWADR
+SETLP
+	MOVB R1,@VDPWD
+	DEC R2
+	JNE SETLP
+	B *R12
+
+* Load the color table - EA uses all F5
+SETCOL
+	LI R0,>0380
+	LI R1,>F500
+	LI R2,32
+	B @VSET
+
+* clear the screen - it's 768 bytes at >0000
+CLRSCR
+	CLR R0
+	LI R1,>2000
+	LI R2,4095
+	B @VSET
+
+* load the character set to PDT. First char is 30,
+* PDT is at >1000 (or will be), so we need to load
+* to >10F0
+LOADCH
+	LI R0,>10F0	* write address
+	LI R1,CHARS
+	LI R2,>0308
+	B @VMBW
+	
+* Load the EA registers -- the data is ordered
+* such that R1 is last, and it contains the screen enable
+* bit, so the screen stays blank till we're done
+LOADREG
+	MOV R11,R13
+	LI R1,VDPREG
+	LI R2,8
+REGLP
+	MOV *R1+,R0
+	BL @VWADR
+	DEC R2
+	JNE REGLP
+	B *R13
+	
+* Write the value in R9 as a hex value to VDP
+* Uses R10, assumes VDP address is valid
+WRHEX
+	MOV R9,R10		* save value
+	ANDI R10,>F000	* mask nibble
+	SRL R10,12		* shift to least significant nibble
+	AI R10,'0'		* add ascii of '0'
+	CI R10,'9'		* compare against '9'
+	JLE WRHEX1		* if less or equal, skip
+	AI R10,7			* if greater, add 7 more to get up to 'A'
+WRHEX1
+	MOVB @>8315,@VDPWD	* copy LSB of R10 to VDP out
+
+	MOV R9,R10		* save value
+	ANDI R10,>0F00	* mask nibble
+	SRL R10,8		* shift to least significant nibble
+	AI R10,'0'		* add ascii of '0'
+	CI R10,'9'		* compare against '9'
+	JLE WRHEX2		* if less or equal, skip
+	AI R10,7			* if greater, add 7 more to get up to 'A'
+WRHEX2
+	MOVB @>8315,@VDPWD	* copy LSB of R10 to VDP out
+
+	MOV R9,R10		* save value
+	ANDI R10,>00F0	* mask nibble
+	SRL R10,4		* shift to least significant nibble
+	AI R10,'0'		* add ascii of '0'
+	CI R10,'9'		* compare against '9'
+	JLE WRHEX3		* if less or equal, skip
+	AI R10,7			* if greater, add 7 more to get up to 'A'
+WRHEX3
+	MOVB @>8315,@VDPWD	* copy LSB of R10 to VDP out
+	
+	MOV R9,R10		* save value
+	ANDI R10,>000F	* mask nibble
+	AI R10,'0'		* add ascii of '0'
+	CI R10,'9'		* compare against '9'
+	JLE WRHEX4		* if less or equal, skip
+	AI R10,7			* if greater, add 7 more to get up to 'A'
+WRHEX4
+	MOVB @>8315,@VDPWD	* copy LSB of R10 to VDP out
+	
+	B *R11
+
+* System initialization
+START	
+* no interrupts! We don't want the VDP address messed with
+	LIMI 0
+
+* Set our workspace 
+	LWPI >8300
+
+* Blank the screen - leave the 16k bit on!
+	LI R0,>8180
+	BL @VWADR
+	
+* load a character set (big captials is too hard to read)	
+	BL @LOADCH
+	
+* set colors
+	BL @SETCOL
+
+* clear the screen
+	BL @CLRSCR
+	
+* delete all sprites
+	LI R0,>4300
+	BL @VWADR
+	LI R0,>D000
+	MOVB R0,@VDPWD
+
+* Load E/A registers (enables the screen)
+	BL @LOADREG
+
+* initialize VDP address (this will actually start writes at '1')
+	CLR R0
+	BL @VWADR
+
+* set the mirror
+	LI R0,>F000
+	MOVB R0,@>83d4
+	
+* before the first bank switch, save off the bank we are on in R15
+	MOV @BANKDAT,R15
+	
+* For each bank, we switch to it, write the address to the screen,
+* then read the BANKDAT value. It should match the bank, otherwise we have a problem
+* to get nice neat columns, every output must output 10 chars, and we will waste two.
+* (I didn't want to count, but we need 3 columns to get 512k ROMs tested on one screen)
+	CLR R5					* column count
+
+* start at bank >6000 (all banks have the same code)
+	LI R9,>6000
+	
+TSTLP
+* display the current bank
+	BL @WRHEX
+	
+* if it matches the boot bank, use an asterisk instead of the dash
+	C R9,R15
+	JNE USEDS
+	MOVB @STAR,@VDPWD		* '*'
+	JMP OKPUNC
+USEDS	
+	MOVB @DASH,@VDPWD		* '-'
+OKPUNC
+	
+* now do the switch
+	MOV R9,*R9
+	
+* Now read and test the data
+	MOV @BANKDAT,R8
+	C R8,R9
+	JNE BADMAT
+	
+* It's good! 3 points!
+	MOVB @TXTOK,@VDPWD		* 'O'
+	MOVB @TXTOK+1,@VDPWD	* 'K'
+	MOVB @SPACE,@VDPWD		* ' '
+	MOVB @SPACE,@VDPWD		* ' '
+	MOVB @SPACE,@VDPWD		* ' '
+	JMP NEXTONE
+	
+* no match - draw attention and emit what we got	
+BADMAT
+	MOV R9,R7				* save real value
+	MOV R8,R9				* so we can print it
+	BL @WRHEX
+	MOV R7,R9				* restore actual value
+	MOVB @SPACE,@VDPWD		* ' '
+	
+* carry on	
+NEXTONE	
+	INC R5					* column count
+	CI R5,96				* at this point, skip 64 bytes
+	JNE NOLINE
+	LI R5,64
+NXTLP
+	MOVB @SPACE,@VDPWD
+	DEC R5
+	JNE NXTLP
+
+NOLINE	
+	INCT R9
+	C R9,@LSTBANK
+	JLE TSTLP
+	
+	MOVB @DONE,@VDPWD		* '*'
+	MOVB @DONE+1,@VDPWD		* ' '
+	MOVB @DONE+2,@VDPWD		* 'D'
+	MOVB @DONE+3,@VDPWD		* 'O'
+	MOVB @DONE+4,@VDPWD		* 'N'
+	MOVB @DONE+5,@VDPWD		* 'E'
+	MOVB @DONE+6,@VDPWD		* ' '
+	MOVB @DONE+7,@VDPWD		* '*'
+	
+* enable interrupts and wait for QUIT (and paging too)
+EVR4
+	CLR R5					* register for holding page
+
+MNLP
+	LIMI 2
+	LIMI 0
+
+	LI R0,>8200
+	SOC R5,R0
+	BL @VWADR				* set the VDP page
+
+	LI R0,>0500
+	MOVB R0,@>8374
+	LWPI GPLWS
+	BL @SCAN				* check keyboard
+	LWPI >8300
+
+	CLR R0
+	MOVB @>8375,R0
+	CI R0,>FF00
+	JEQ MNLP
+
+WAITKY
+	LI R0,>0500
+	MOVB R0,@>8374
+	LWPI GPLWS
+	BL @SCAN				* check keyboard
+	LWPI >8300
+
+	CLR R0
+	MOVB @>8375,R0
+	CI R0,>FF00
+	JNE WAITKY
+
+	INC R5
+	CI R5,3
+	JNE NOLP
+	CLR R5
+NOLP
+
+	JMP MNLP
+	
+	END
+	
